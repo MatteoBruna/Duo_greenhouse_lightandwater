@@ -69,9 +69,7 @@ void controlstuff(const String& what, int val) {
 bool ll1=0;//queste sono quelle diretamente collegate al controllo online
 bool ll2=0;
 bool ll3=0;
-bool l1=0;
-bool l2=0;
-bool l3=0;
+bool auto=0; //automatic mode se nel range temporale giusto
 bool v1=0;
 bool v2=0;
     
@@ -205,19 +203,20 @@ int temperatura = response.body.substring(controlvalue + 9, controlvalue + 9 + 3
 
 //condizioni delle booleane sul tempo...MA IL COMANDO MAUNALE DEVE FARE OVERRIDE DI QUELLO AUTOMATICO!!!!
 if (Time.hour()>=23||Time.hour()<=8){
-    l1=1;
-    l2=1;
-   // l3=1;
+	auto = 1;
 }
 if (Time.hour()<23 && Time.hour()>8){
-    l1=0;
-    l2=0;
-   // l3=0;
+	auto = 0;
 }
 
 //action part: align real light status to the one online and start irrigation procedure
 if (temperatura < 30){
     //controllo luce 1
+
+	if (auto == 1) ()
+	
+	
+	
     if (ll1==1){
         if(digitalRead(A5)==LOW){digitalWrite(A5, HIGH); Particle.publish("Luce 1 accesa!");}
         else if (l1==0 && digitalRead(A5)==HIGH){digitalWrite(A5, LOW);controlstuff(light1, 0); Particle.publish("Luce 1 spenta!");
