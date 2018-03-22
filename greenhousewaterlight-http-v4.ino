@@ -25,8 +25,8 @@ void setupWiFi() {
   WiFi.on();
   WiFi.disconnect();
   WiFi.clearCredentials();
-  WiFi.setCredentials("DeepXDemoNet", "deepxdeepx", WPA2, WLAN_CIPHER_AES);
-  WiFi.setCredentials("picciupicciu2p4", "Limx0sinx/x=1", WPA2, WLAN_CIPHER_AES);
+  WiFi.setCredentials("", "", WPA2, WLAN_CIPHER_AES);
+  WiFi.setCredentials("", "", WPA2, WLAN_CIPHER_AES);
   WiFi.connect();
   waitUntil(WiFi.ready);
   Particle.connect();
@@ -38,13 +38,13 @@ SYSTEM_THREAD(ENABLED);
 
 HttpClient http;
 
-#define TOKEN "RGlKUcqwMXi77GzBEKz2vBhAu30Uvz"
-#define light1 "5a6870b8c03f971f74abb674"
-#define light2 "5a6870a9c03f971f74abb671"
-#define light3 "5a79d19dc03f97787fcfa788"
-#define valve1 "5a687108c03f971f72de4f8f"
-#define valve2 "5a687112c03f971f72de4f90"
-#define temp "5964d51676254219490c90fd"
+#define TOKEN ""
+#define light1 ""
+#define light2 ""
+#define light3 ""
+#define valve1 ""
+#define valve2 ""
+#define temp ""
 #define search_on "\"value\": 1.0"
 #define search_off "\"value\": 0.0"
 
