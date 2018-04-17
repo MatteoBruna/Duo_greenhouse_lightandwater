@@ -304,7 +304,7 @@ wd.checkin(); // resets the AWDT count
     
     //controllo valvola 2 ventolino ...voglio il comando manuale e quello automatico che azioni per un massimo di 3 minuti non blocking
     
-    if(((config[4]==1 && commfaultv2 == 0) || (temperatura > 30)) && digitalRead(A1)==LOW) //lo faccio runnare per 2 minuti in caso di comando o di temperatura troppo alta
+    if(((config[4]==1 && commfaultv2 == 0) || (temperatura > 30)) && digitalRead(A1)==LOW) //lo faccio runnare per n max di 30 minuti in caso di comando o di temperatura troppo alta
     {
     digitalWrite(A1, HIGH);  // Turn it on
     Particle.publish("Ventilazione iniziata");
@@ -312,11 +312,17 @@ wd.checkin(); // resets the AWDT count
     previousMillis = millis();  // Remember the time the valve went on
     controlstuff(valve2, 1); //questo e' ridoandante, ma in caso di temperatura alta il ciclo partirebbe senza un input e una volta spento metterei uno 0 come dato senza l'1 iniziale e con tutti 0 ho poi problemi con il fetch dei dati
     }
-    else if (digitalRead(A1)==HIGH && (millis() - previousMillis > 180000)) //ventolino per 3 minuti
+    else if ((digitalRead(A1)==HIGH && temperatura < 29) || (digitalRead(A1)==HIGH && (millis() - previousMillis > 1800000))) //ventolino fino a che temp <30 o per un max di 30 minuti
     {
     digitalWrite(A1, LOW);  // Turn it off
     previousMillis = 0;
     controlstuff(valve2, 0);
+    }
+    else if (config[4]==0 && commfaultv2 == 0 && digitalRead(A1)==HIGH)  //in caso l'utente spenga il ventolino
+    {
+    digitalWrite(A1, LOW);  // Turn it off
+    previousMillis = 0;
+    controlstuff(valve2, 0);    
     }
     
    // Particle.publish("Ventilazione finita", String(millis() - previousMillis));
