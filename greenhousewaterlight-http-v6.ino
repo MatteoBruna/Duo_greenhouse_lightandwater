@@ -190,7 +190,7 @@ wd.checkin(); // resets the AWDT count
     index_on = 0;
     index_off = 0;
     
-    //check se irrigare valvola2
+    //check se azionare valvola 2 (ventola)
     request.path = "/api/v1.6/variables/"valve2"/values";
     http.get(request, response, headers);
 //Serial.println("valve_2");
@@ -288,8 +288,7 @@ wd.checkin(); // resets the AWDT count
     else if (temperatura>30){
     if(digitalRead(A5)==HIGH){digitalWrite(A5, LOW);controlstuff(light1, 0);}
     if(digitalRead(A6)==HIGH){digitalWrite(A6, LOW);controlstuff(light2, 0);}
-    if(digitalRead(A3)==HIGH){digitalWrite(A3, LOW);controlstuff(light3, 0);}
-    Particle.publish("Temperatura troppo alta, luci tutte spente!");
+    if(digitalRead(A3)==HIGH){digitalWrite(A3, LOW);controlstuff(light3, 0);Particle.publish("Temperatura troppo alta, luci tutte spente!");}
     }
     
     //controllo valvola 1
@@ -304,17 +303,17 @@ wd.checkin(); // resets the AWDT count
     
     //controllo valvola 2 ventolino ...voglio il comando manuale e quello automatico che azioni per un massimo di 3 minuti non blocking
     
-    if(((config[4]==1 && commfaultv2 == 0) || (temperatura > 30)) && digitalRead(A1)==LOW) //lo faccio runnare per n max di 30 minuti in caso di comando o di temperatura troppo alta
+    if((config[4]==1 && commfaultv2 == 0 && digitalRead(A1)==LOW) || (temperatura > 30 && digitalRead(A1)==LOW)) //lo faccio runnare per n max di 30 minuti in caso di comando o di temperatura troppo alta
     {
     digitalWrite(A1, HIGH);  // Turn it on
     Particle.publish("Ventilazione iniziata");
-    config[4]=0;
     previousMillis = millis();  // Remember the time the valve went on
     controlstuff(valve2, 1); //questo e' ridoandante, ma in caso di temperatura alta il ciclo partirebbe senza un input e una volta spento metterei uno 0 come dato senza l'1 iniziale e con tutti 0 ho poi problemi con il fetch dei dati
     }
     else if ((digitalRead(A1)==HIGH && temperatura < 29) || (digitalRead(A1)==HIGH && (millis() - previousMillis > 1800000))) //ventolino fino a che temp <30 o per un max di 30 minuti
     {
     digitalWrite(A1, LOW);  // Turn it off
+    config[4]==0;
     previousMillis = 0;
     controlstuff(valve2, 0);
     }
