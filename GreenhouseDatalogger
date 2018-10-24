@@ -1,0 +1,224 @@
+// This #include statement was automatically added by the Spark IDE.
+#include "Adafruit_DHT/Adafruit_DHT.h"
+// This #include statement was automatically added by the Spark IDE.
+#include "HttpClient/HttpClient.h"
+#include "math.h"
+STARTUP(WiFi.selectAntenna(ANT_AUTO)); //AUTO will select best antenna or ANT_INTERNAL or ANT_EXTERNAL to select manually
+SYSTEM_MODE(SEMI_AUTOMATIC);
+SYSTEM_THREAD(ENABLED);
+
+HttpClient http;
+#define VARIABLE_ID_temp ""   //queste le creo sul sito ubidots aggiungendo una variable, poi copio l'ID; il token e' del dispositivo
+#define VARIABLE_ID_humid ""
+#define VARIABLE_ID_light ""
+#define VARIABLE_ID_soil1 ""
+//#define VARIABLE_ID_soil2 ""
+#define VARIABLE_ID_SWITCH "" //switch per fare il debugging (introduco un delay prima del dep sleep per poter caricare un nuovo programma in caso di problemi)
+#define VARIABLE_ID_battery ""
+#define VARIABLE_ID_timeonline ""
+#define TOKEN ""
+
+//#define DHTPIN 5     // what pin we're connected to
+// Uncomment whatever type you're using!
+#define DHTTYPE DHT22		// oppure DHT 11
+DHT dht(D4, DHTTYPE);
+// Reading temperature or humidity takes about 250 milliseconds!
+// Sensor readings may also be up to 2 seconds 'old' (its a
+// very slow sensor)
+// Read temperature as Celsius
+// Headers currently need to be set at init, useful for API keys etc.
+http_header_t headers[] = {
+      { "Content-Type", "application/json" },
+      { "X-Auth-Token" , TOKEN},
+        { NULL, NULL } // NOTE: Always terminate headers will NULL
+};
+
+http_request_t request;
+http_response_t response;
+
+float hok = 0;
+float tok = 0;
+
+ApplicationWatchdog wd(60000, System.reset, 1536);  //watchdog che riavvia il sistema se la connessione richiede piu' di un minuto
+
+void setup() {
+    request.hostname = "things.ubidots.com";
+    request.port = 80;
+//    Serial.begin(9600);
+    dht.begin();
+
+//con PINMODE-->OUTPUT il pin fornisce potenza e il sensore funziona :-)
+    pinMode(D0, OUTPUT);  //alimentazione LDR
+    pinMode(D3, OUTPUT);  //alimentazione DHT
+    pinMode(D1, OUTPUT);  //alimentazione soil moisture sensor #1
+    pinMode(D2, OUTPUT);  //alimentazione soil moisture sensor #2
+}
+
+
+
+void loop() {
+    
+    float battery = 0;
+    for (int i=0; i<10; i++){
+    battery = battery + analogRead(A5);
+    delay(20);
+    }
+    battery = battery/10 - 400; //Calibrazione per il sensore
+    if (battery < 5) { //se la batteria e' bassa salto la misura e ricontrollo dopo un ora
+    System.sleep(SLEEP_MODE_DEEP, 3600);
+    }
+    
+    
+    //alimento e leggo la LDR per misurare la luce  (LDR Supp= D0; LDR read = A0)
+    digitalWrite(D0, HIGH); //sensore acceso
+    delay(150);
+    float l = analogRead(A0);
+    //l = 100/(1+pow(M_E, -0.006*(l-3600)));
+    digitalWrite(D0, LOW); //sensore spento
+
+    //alimento e leggo il DHt22 per misurare moisture e temperatura (DHT Supp = D3; DHT Read = D4)
+    digitalWrite(D3, HIGH); //sensore acceso
+    delay(1800); //questo si puo' aggiustare...il datasheet dice al minimo 1.7s
+	  //float h = dht.getHumidity();
+    float t = dht.getTempCelcius();
+    digitalWrite(D3, LOW); //sensore spento
+
+    //alimento e leggo il sensore capacitivo per soil humidity (M1 Supp = D1; M1 read = A1)
+    digitalWrite(D1, HIGH); //sensore acceso
+    delay(250);
+    float soil1 = analogRead(A1);
+    digitalWrite(D1, LOW); //sensore spento
+    soil1 = (188.8 - (0.0606 * soil1)); //Calibrazione per il sensore....in aria = 3130; in acqua = 1480  (ho fatto la retta per i due punti). Probabilmente e' da fare per ogni sensore
+
+    // //alimento e leggo il sensore capacitivo per soil humidity (M2 Supp = D2; M2 read = A2)
+    // digitalWrite(D2, HIGH); //sensore acceso
+    // delay(500);
+    // float soil2 = analogRead(A2);
+    // digitalWrite(D2, LOW); //sensore spento
+    // soil2 = (188.8 - (0.0606 * soil2)); //Calibrazione per il sensore....in aria = 3130; in acqua = 1480  (ho fatto la retta per i due punti). Probabilmente e' da fare per ogni sensore
+    
+
+    float tol = millis();
+    
+    WiFi.connect(WIFI_CONNECT_SKIP_LISTEN);
+    while (!WiFi.ready()){}
+    
+    wd.checkin(); // resets the AWDT count
+    
+    // if (Particle.connected() == FALSE){
+    // WiFi.connect(WIFI_CONNECT_SKIP_LISTEN);
+    // while (WiFi.ready() == FALSE){}
+    // }
+    
+//Cosi' mando i dati solo se non sono corrotti...visot che il DH22 ogni tanto sbarella
+    // if (isnan(h) == false && h > 0) {
+    //     request.path = "/api/v1.6/variables/"VARIABLE_ID_humid"/values";
+    //     request.body = "{\"value\":" + String(h) + "}";
+    //     http.post(request, response, headers);
+    //     //Serial.println(response.body);
+    // }
+
+    if (isnan(t) == false && t > 0) {
+        request.path = "/api/v1.6/variables/"VARIABLE_ID_temp"/values";
+        request.body = "{\"value\":" + String(t) + "}";
+        http.post(request, response, headers);
+        //Serial.println(response.body);
+    }
+    
+    if (soil1 > 15){ //li mando solo se il valore e' > 15 altrimenti vuold dire che l'ho tolto dalla terra temporaneamente
+    request.path = "/api/v1.6/variables/"VARIABLE_ID_soil1"/values";
+    request.body = "{\"value\":" + String(soil1) + "}";
+    http.post(request, response, headers);
+    //Serial.println(response.body);
+    }
+    
+    //if (soil2 > 15){
+    // request.path = "/api/v1.6/variables/"VARIABLE_ID_soil2"/values";
+    // request.body = "{\"value\":" + String(soil2) + "}";
+    // http.post(request, response, headers);
+    //Serial.println(response.body);
+    //}
+    
+//luce e battery invece li mando sempre che sono solo Analogreads
+    request.path = "/api/v1.6/variables/"VARIABLE_ID_light"/values";
+    request.body = "{\"value\":" + String(l) + "}";
+    http.post(request, response, headers);
+    //Serial.println(response.body);
+    
+    request.path = "/api/v1.6/variables/"VARIABLE_ID_battery"/values";
+    request.body = "{\"value\":" + String(battery) + "}";
+    http.post(request, response, headers);
+    //Serial.println(response.body);
+    
+    tol=(millis()-tol)/1000;
+    request.path = "/api/v1.6/variables/"VARIABLE_ID_timeonline"/values";
+    request.body = "{\"value\":" + String(tol) + "}";
+    http.post(request, response, headers);
+
+
+//print stuff for control purposes
+//    Serial.print("La temperatura e': ");
+//    Serial.println(t);
+
+//    Serial.print("L'umidita' relativa e': ");
+//    Serial.println(h);
+
+//    Serial.print("La luminosita' e': ");
+//    Serial.println(l);
+
+//    Serial.print("L'umidita' del terreno e': ");
+//    Serial.println(soil1);
+
+//    Serial.print("L'umidita' del terreno 2 e': ");
+//    Serial.println(soil2);
+
+//    Serial.print("La carica della batteria e': ");
+//    Serial.println(battery);
+
+
+    // Get switch value from Ubidots...da togliere una volta ottimizzato il codice ma viene buono anche per le valvole di irrigazione
+    //===============================
+//    Serial.println("\n\n\n>>> [ GET DATA FROM UBIDOTS ]");
+    request.path = "/api/v1.6/variables/"VARIABLE_ID_SWITCH"/values";
+    http.get(request, response, headers);
+    //Serial.println(response.status);
+
+    // Enter Debugging mode based on Ubidots Switch value
+    // index_on = -1 if not found
+    // index_off = -1 if not found
+    // index_on < index_off if last command was turning on
+    // index_off < index_on if last command was turning off
+    //Serial.println(response.body);
+    String search_on = String("\"value\": 1.0");
+    String search_off = String("\"value\": 0.0");
+    int index_on = response.body.indexOf(search_on);
+    int index_off = response.body.indexOf(search_off);
+//    Serial.print("Debugging ON: ");
+//    Serial.println(index_on);
+//    Serial.print("Debugging OFF: ");
+//    Serial.println(index_off);
+    if (index_on == -1 && index_off == -1) {
+        System.sleep(SLEEP_MODE_DEEP, 300); //Se non riece a comunicare con Ubidots puo' essere che Ubidots sia giu', quindi lo mando a nanna per 5 min, poi alr siveglio il sistema e' resettato
+    }
+    else if (index_on < index_off) { //debugging mode ON
+      //  Serial.println("Waiting 20s, debugging on");
+        if (Particle.connected() == false){Particle.connect();}
+        delay(5000);
+    }
+    else if (index_on > index_off) { //debugging mode OFF
+      //  Serial.println("Switching OFF power, debugging OFF");
+      if (battery <= 20){
+        System.sleep(SLEEP_MODE_DEEP, 3600); //una misura ogni 60 minuti
+      }
+      else if (battery > 20 && battery < 30){
+        System.sleep(SLEEP_MODE_DEEP, 1800); //una misura ogni 30 minuti
+      }
+      else if (battery >= 30){
+        System.sleep(SLEEP_MODE_DEEP, 300); //una misura ogni 5 minuti
+      }
+    }
+
+//Serial.println("fine ciclo");
+
+
+}
